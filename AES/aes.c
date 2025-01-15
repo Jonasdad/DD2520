@@ -28,6 +28,7 @@ uint8_t* generate_block(FILE *file_ptr, int *pos);
 void print_array(uint8_t array[], int length);
 void print_2d_array(uint8_t array[4][4]);
 uint8_t (*block_to_matrix(uint8_t block[16]))[4];
+uint8_t (*shift_rows(uint8_t block[4][4]))[4];
 
 
 void main() {
@@ -40,17 +41,45 @@ void main() {
 
    // printf("Substitute in hex: %02x\n", substitute(0x53));
     uint8_t* block = generate_block(file_ptr, &pos);
-    print_array(block, 16);
-    block_to_matrix(block);
+    uint8_t* block2 = generate_block(file_ptr, &pos);
+    print_array(block2, 16);
+    shift_rows(block_to_matrix(block2));
+
 }
 
 uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
+        uint8_t temp = block[1][0];
 
+        // first shift
+        for(int i = 0; i < 3; i++){
+            block[1][i] = block[1][i+1];
+        } 
+        block[1][3] = temp;
+        
+        //second shift
+        temp = block[2][0];
+        block[2][0] = block[2][2];
+        block[2][2] = temp;
+
+        temp = block[2][1];
+        block[2][1] = block[2][3];
+        block[2][3] = temp;
+
+        //third shift
+        temp = block[3][3];
+        for(int i = 2; i >= 0; i--){
+            uint8_t temp2 = block[3][i+1];
+            block[3][i+1] = block[3][i];
+
+        }
+        block[3][0] = temp;
+        printf("\n");
+        print_2d_array(block);
         return block;
 }
 
 uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
-    uint8_t matrix[4][4];
+    static uint8_t matrix[4][4];
     int j = 0;
     int k = 0;
     for(int i = 0; i < 16; i++){
@@ -62,6 +91,7 @@ uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
         j++;
     }
     print_2d_array(matrix);
+    return matrix;
 }
 
 
