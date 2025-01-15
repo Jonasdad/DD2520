@@ -22,42 +22,75 @@ static const uint8_t sbox[16][16] = {
     {0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16}
 };
 
-char* get_key(char* file_name);
+char* get_key(FILE *file_ptr, int *pos);
 uint8_t substitute(uint8_t byte);
 uint8_t* generate_block(FILE *file_ptr, int *pos);
 void print_array(uint8_t array[], int length);
-void main() {
-    //printf("Starting program\n");
-    //char* key = get_key("test.txt");
-    //printf("Key: %s\n", key);
+void print_2d_array(uint8_t array[4][4]);
+uint8_t (*block_to_matrix(uint8_t block[16]))[4];
 
-    printf("Substitute in hex: %02x\n", substitute(0x53));
-    FILE *file_ptr = fopen("test.txt", "r");
+
+void main() {
+    printf("Starting program\n");
     int pos = 0;
-    generate_block(file_ptr, &pos);
+    FILE *file_ptr = fopen("test.txt", "r");
+    char* key = get_key(file_ptr, &pos);
     printf("Pos is now: %d\n", pos);
-    generate_block(file_ptr, &pos);
-    printf("Pos is now: %d\n", pos);
+    printf("Key: %s\n", key);
+
+   // printf("Substitute in hex: %02x\n", substitute(0x53));
+    uint8_t* block = generate_block(file_ptr, &pos);
+    print_array(block, 16);
+    block_to_matrix(block);
 }
 
+uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
+
+        return block;
+}
+
+uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
+    uint8_t matrix[4][4];
+    int j = 0;
+    int k = 0;
+    for(int i = 0; i < 16; i++){
+        if(j % 4 == 0 && i != 0){
+            k++;
+            j=0;
+        }
+        matrix[k][j] = block[i];
+        j++;
+    }
+    print_2d_array(matrix);
+}
+
+
+void print_2d_array(uint8_t array[4][4]){
+    for(int i = 0; i < 4; i++){
+        for(int j = 0; j < 4; j++){
+            printf("  %02x", array[i][j]);
+        }
+        printf("\n");
+    }
+}
 uint8_t* generate_block(FILE *file_ptr, int *pos){
+    printf("Generating block. Starting from %d\n", *pos);
     fseek(file_ptr, *pos, SEEK_SET);
     uint8_t* block = (uint8_t*)malloc(16 * sizeof(uint8_t));
     fread(block, sizeof(char), 16, file_ptr);
-    print_array(block, 16);
+    //print_array(block, 16);
     *pos += 16;
     return block;
 }
-char* get_key(char* file_name) {
-    FILE *file_ptr;
-    file_ptr = fopen(file_name, "r");
+
+char* get_key(FILE *file_ptr, int *pos) {
     if (file_ptr == NULL) {
         printf("Error: File not found\n");
         exit(1);
     }
     char* key = (char*)malloc(32);
     fgets(key, 33, file_ptr);
-    fclose(file_ptr);
+    *pos += 32;
     return key;
 }
 
@@ -72,10 +105,8 @@ uint8_t substitute(uint8_t byte){
 
 void print_array(uint8_t array[], int length){
     for(int i = 0; i < length; i++){
-        printf("%02x\n", array[i]);
+        printf("%02x", array[i]);
     }
+    printf("\n");
 }
 
-//uint8_t[][] shift_rows(uint8_t block[][]){
-
-//}
