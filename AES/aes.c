@@ -22,6 +22,14 @@ static const uint8_t sbox[16][16] = {
     {0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16}
 };
 
+
+static const uint8_t mix_column_matrix[4][4] = {
+    {0x02, 0x03, 0x01, 0x01},
+    {0x01, 0x02, 0x03, 0x01},
+    {0x01, 0x01, 0x02, 0x03},
+    {0x03, 0x01, 0x01, 0x02}
+};
+
 char* get_key(FILE *file_ptr, int *pos);
 uint8_t substitute(uint8_t byte);
 uint8_t* generate_block(FILE *file_ptr, int *pos);
@@ -48,6 +56,10 @@ void main() {
 }
 
 //TODO MixColumns 
+
+uint8_t (*column_mix(uint8_t block[4][4]))[4]{
+        
+}
 
 uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
         uint8_t temp = block[1][0];
