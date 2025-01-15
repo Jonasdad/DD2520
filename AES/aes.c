@@ -47,16 +47,18 @@ void main() {
 
 }
 
+//TODO MixColumns 
+
 uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
         uint8_t temp = block[1][0];
 
-        // first shift
+        // first shift (1 left shift)
         for(int i = 0; i < 3; i++){
             block[1][i] = block[1][i+1];
         } 
         block[1][3] = temp;
         
-        //second shift
+        //second shift (2 left shifts)
         temp = block[2][0];
         block[2][0] = block[2][2];
         block[2][2] = temp;
@@ -65,7 +67,7 @@ uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
         block[2][1] = block[2][3];
         block[2][3] = temp;
 
-        //third shift
+        //third shift (1 right shift)
         temp = block[3][3];
         for(int i = 2; i >= 0; i--){
             uint8_t temp2 = block[3][i+1];
@@ -73,7 +75,6 @@ uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
 
         }
         block[3][0] = temp;
-        printf("\n");
         print_2d_array(block);
         return block;
 }
@@ -102,6 +103,7 @@ void print_2d_array(uint8_t array[4][4]){
         }
         printf("\n");
     }
+    printf("\n");
 }
 uint8_t* generate_block(FILE *file_ptr, int *pos){
     printf("Generating block. Starting from %d\n", *pos);
