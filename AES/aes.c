@@ -24,16 +24,30 @@ static const uint8_t sbox[16][16] = {
 
 char* get_key(char* file_name);
 uint8_t substitute(uint8_t byte);
-
+uint8_t* generate_block(FILE *file_ptr, int *pos);
+void print_array(uint8_t array[], int length);
 void main() {
     //printf("Starting program\n");
     //char* key = get_key("test.txt");
     //printf("Key: %s\n", key);
 
-    printf("Substitute in hex: %02x\n", substitute(0x00));
-
+    printf("Substitute in hex: %02x\n", substitute(0x53));
+    FILE *file_ptr = fopen("test.txt", "r");
+    int pos = 0;
+    generate_block(file_ptr, &pos);
+    printf("Pos is now: %d\n", pos);
+    generate_block(file_ptr, &pos);
+    printf("Pos is now: %d\n", pos);
 }
 
+uint8_t* generate_block(FILE *file_ptr, int *pos){
+    fseek(file_ptr, *pos, SEEK_SET);
+    uint8_t* block = (uint8_t*)malloc(16 * sizeof(uint8_t));
+    fread(block, sizeof(char), 16, file_ptr);
+    print_array(block, 16);
+    *pos += 16;
+    return block;
+}
 char* get_key(char* file_name) {
     FILE *file_ptr;
     file_ptr = fopen(file_name, "r");
@@ -48,7 +62,20 @@ char* get_key(char* file_name) {
 }
 
 uint8_t substitute(uint8_t byte){
+    //Sbox row is determined by the first 4 bits of the byte
+    //Sbox column is determined by the last 4 bits of the byte
     uint8_t row = (byte & 0xf0) >> 4;
     uint8_t col = byte & 0x0f;
     return sbox[row][col];
 }
+
+
+void print_array(uint8_t array[], int length){
+    for(int i = 0; i < length; i++){
+        printf("%02x\n", array[i]);
+    }
+}
+
+//uint8_t[][] shift_rows(uint8_t block[][]){
+
+//}
