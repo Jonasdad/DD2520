@@ -79,12 +79,13 @@ void shift_rows(uint8_t block[4][4]);
 void column_mix(uint8_t block[4][4]);
 void add_round_key(uint8_t block[4][4], uint8_t key[4][4]);
 void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len);
-uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[16]))[4];
+uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[11][16]))[4];
 void print_byte_array(uint8_t array[], int length);
 uint8_t* flatten_matrix(uint8_t (*matrix)[4]);
 void RotWord(uint8_t word[4]);
 void SubWord(uint8_t word[4]);
-uint8_t* generate_keys(uint8_t key[16]);
+void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]);
+void printKey(uint8_t key[11][16], int length);
 
 void main() {
     printf("Starting program\n");
@@ -94,12 +95,16 @@ void main() {
     uint8_t key_bytes[16];
     hexStringToBytes(key, key_bytes, 16);
     uint8_t (*key_matrix)[4] = block_to_matrix(key_bytes);
+    uint8_t keys[11][16];
+    keyExpansion(key_bytes, keys);
+
+    printKey(keys, 176);
 
     uint8_t* block2 = generate_block(file_ptr, &pos);
     uint8_t state[16];
     hexStringToBytes(block2, state, 16);
     
-    uint8_t (*encrypted)[4] = aes_encrypt(state, key_bytes);
+    uint8_t (*encrypted)[4] = aes_encrypt(state, keys);
     
     printf("Expected output: 52e418cbb1be4949308b381691b109fe\n");
     uint8_t* result = flatten_matrix(encrypted);
@@ -111,8 +116,42 @@ void main() {
     free(encrypted);
 }
 
-uint8_t* generate_keys(uint8_t key[16]){
+void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]) {
+    memcpy(expandedKey[0], key, 16); // Copy original key into first round key
 
+    uint8_t temp[4];
+    int bytesGenerated = 16;
+    int rconIndex = 0;
+
+    while (bytesGenerated < 176) {
+        // Copy last 4 bytes of current expanded key
+        for (int i = 0; i < 4; i++) {
+            temp[i] = expandedKey[bytesGenerated / 16 - 1][bytesGenerated % 16 - 4 + i];
+        }
+
+        // Apply key schedule core every 16 bytes
+        if (bytesGenerated % 16 == 0) {
+            RotWord(temp);
+            SubWord(temp);
+            temp[0] ^= rcon[rconIndex++];
+        }
+
+        // Generate new key word
+        for (int i = 0; i < 4; i++) {
+            expandedKey[bytesGenerated / 16][bytesGenerated % 16] = expandedKey[bytesGenerated / 16 - 1][bytesGenerated % 16] ^ temp[i];
+            bytesGenerated++;
+        }
+    }
+}
+
+// Print keys
+void printKey(uint8_t key[11][16], int length) {
+    for(int i = 0; i < 11; i++){
+        for(int j = 0; j < 16; j++){
+            printf("%02x", key[i][j]);
+        }
+        printf("\n");
+    }
 }
 
 void RotWord(uint8_t word[4]){
@@ -134,29 +173,33 @@ void SubWord(uint8_t word[4]){
     }
 }
 
+uint8_t (*aes_encrypt(uint8_t block[16], uint8_t expandedKey[11][16]))[4] {
+    uint8_t (*state)[4] = block_to_matrix(block);
 
-uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[16]))[4] {
-    uint8_t (*block_matrix)[4] = block_to_matrix(block);
-    uint8_t (*key_matrix)[4] = block_to_matrix(key);
-    printf("Starting encryption\n");
-    printf("Block: \n");
-    print_2d_array(block_matrix);
-    printf("Key: \n");
-    print_2d_array(key_matrix);
-    add_round_key(block_matrix, key_matrix);
-    for (int i = 0; i < 9; i++) {
-        substitute(block_matrix);
-        shift_rows(block_matrix);
-        column_mix(block_matrix);
-        add_round_key(block_matrix, key_matrix);
+    // Initial round: Add the first round key (expandedKey[0])
+    printf("Round 0 key:\n");
+    print_2d_array((uint8_t (*)[4]) expandedKey[0]);
+    add_round_key(state, (uint8_t (*)[4]) expandedKey[0]);
+    
+    // 9 Main rounds
+    for (int round = 1; round < 10; round++) {
+        substitute(state);  // S-Box substitution
+        shift_rows(state);  // ShiftRows
+        column_mix(state);  // MixColumns
+        printf("Round %d key:\n", round);
+        print_2d_array((uint8_t (*)[4]) expandedKey[round]);
+        add_round_key(state, (uint8_t (*)[4]) expandedKey[round]);
     }
-    substitute(block_matrix);
-    shift_rows(block_matrix);
-    add_round_key(block_matrix, key_matrix);
-    printf("Finished encryption\n");
-    return block_matrix;
-}
 
+    // Final round (without MixColumns)
+    substitute(state);
+    shift_rows(state);
+    printf("Round 10 key:\n");
+    print_2d_array((uint8_t (*)[4]) expandedKey[10]);  // Last round key
+    add_round_key(state, (uint8_t (*)[4]) expandedKey[10]);
+    print_2d_array(state);
+    return state;
+}
 uint8_t* flatten_matrix(uint8_t (*matrix)[4]) {
     uint8_t* result = malloc(16 * sizeof(uint8_t));
     int j = 0;
@@ -168,7 +211,6 @@ uint8_t* flatten_matrix(uint8_t (*matrix)[4]) {
     }
     return result;
 }
-
 void print_byte_array(uint8_t array[], int length) {
     for (int i = 0; i < length; i++) {
         printf("%02x", array[i]);
@@ -208,8 +250,8 @@ void column_mix(uint8_t block[4][4]) {
             block[i][c] = temp[i];
         }
     }
-    printf("Column mix: \n");
-    print_2d_array(block);
+    //printf("Column mix: \n");
+    //print_2d_array(block);
 }
 
 void shift_rows(uint8_t block[4][4]){
