@@ -60,7 +60,6 @@ static const uint8_t gf_mul_3[256] = {
     0x0b,0x08,0x0d,0x0e,0x07,0x04,0x01,0x02,0x13,0x10,0x15,0x16,0x1f,0x1c,0x19,0x1a
     };
 
-
 static const uint8_t mix_column_matrix[4][4] = {
     {0x02, 0x03, 0x01, 0x01},
     {0x01, 0x02, 0x03, 0x01},
@@ -69,13 +68,17 @@ static const uint8_t mix_column_matrix[4][4] = {
 };
 
 char* get_key(FILE *file_ptr, int *pos);
-uint8_t substitute(uint8_t byte);
+void substitute(uint8_t byte[], int length);
 uint8_t* generate_block(FILE *file_ptr, int *pos);
 void print_array(uint8_t array[], int length);
 void print_2d_array(uint8_t array[4][4]);
 uint8_t (*block_to_matrix(uint8_t block[16]))[4];
-uint8_t (*shift_rows(uint8_t block[4][4]))[4];
-uint8_t (*column_mix(uint8_t block[4][4]))[4];
+void shift_rows(uint8_t block[4][4]);
+void column_mix(uint8_t block[4][4]);
+void add_round_key(uint8_t block[4][4], uint8_t key[4][4]);
+void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len);
+void aes_encrypt(uint8_t block[16], uint8_t key[16]);
+void print_byte_array(uint8_t array[], int length);
 
 
 void main() {
@@ -83,22 +86,60 @@ void main() {
     int pos = 0;
     FILE *file_ptr = fopen("test.txt", "r");
     char* key = get_key(file_ptr, &pos);
-    printf("Pos is now: %d\n", pos);
-    printf("Key: %s\n", key);
+    uint8_t key_bytes[16];
+    hexStringToBytes(key, key_bytes, 16);
+    uint8_t (*key_matrix)[4] = block_to_matrix(key_bytes);
 
-   // printf("Substitute in hex: %02x\n", substitute(0x53));
-    uint8_t* block = generate_block(file_ptr, &pos);
     uint8_t* block2 = generate_block(file_ptr, &pos);
-    print_array(block2, 16);
-    uint8_t (*matrix)[4] = block_to_matrix(block2);
-    uint8_t (*shifted_matrix)[4] = shift_rows(matrix);
-    uint8_t (*mixed_matrix)[4] = column_mix(shifted_matrix);
+    uint8_t state[16];
+    hexStringToBytes(block2, state, 16);
+    aes_encrypt(state, key_bytes);
+    printf("Output: ");
+    print_byte_array(state, 16);
+    printf("Expected output: 52e418cbb1be4949308b381691b109fe\n");
 }
 
-//TODO MixColumns 
+void aes_encrypt(uint8_t block[16], uint8_t key[16]) {
+    uint8_t (*block_matrix)[4] = block_to_matrix(block);
+    uint8_t (*key_matrix)[4] = block_to_matrix(key);
+    add_round_key(block_matrix, key_matrix);
+    for (int i = 0; i < 9; i++) {
+        substitute(block, 16);
+        shift_rows(block_matrix);
+        column_mix(block_matrix);
+        add_round_key(block_matrix, key_matrix);
+    }
+    substitute(block, 16);
+    shift_rows(block_matrix);
+    add_round_key(block_matrix, key_matrix);
+    printf("Finished encryption\n");
+}
 
-uint8_t (*column_mix(uint8_t block[4][4]))[4] {
-    static uint8_t result[4][4];
+void print_byte_array(uint8_t array[], int length) {
+    for (int i = 0; i < length; i++) {
+        printf("%02x", array[i]);
+    }
+    printf("\n");
+}
+
+void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        sscanf(hexString + 2 * i, "%2hhx", &byteArray[i]);
+    }
+}
+
+ void add_round_key(uint8_t block[4][4], uint8_t key[4][4]){
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            //printf("Block: %02x\n", block[i][j]);
+            //printf("Key: %02x\n", key[i][j]);
+            block[i][j] ^= key[i][j];
+            //printf("Result: %02x\n", block[i][j]);
+        }
+    }
+}
+
+void column_mix(uint8_t block[4][4]) {
     uint8_t temp[4];
 
     for (int c = 0; c < 4; c++) {
@@ -106,16 +147,13 @@ uint8_t (*column_mix(uint8_t block[4][4]))[4] {
         temp[1] = block[0][c] ^ gf_mul_2[block[1][c]] ^ gf_mul_3[block[2][c]] ^ block[3][c];
         temp[2] = block[0][c] ^ block[1][c] ^ gf_mul_2[block[2][c]] ^ gf_mul_3[block[3][c]];
         temp[3] = gf_mul_3[block[0][c]] ^ block[1][c] ^ block[2][c] ^ gf_mul_2[block[3][c]];
-
         for (int i = 0; i < 4; i++) {
-            result[i][c] = temp[i];
+            block[i][c] = temp[i];
         }
     }
-    print_2d_array(result);
-    return result;
 }
 
-uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
+void shift_rows(uint8_t block[4][4]){
         uint8_t temp = block[1][0];
 
         // first shift (1 left shift)
@@ -141,12 +179,10 @@ uint8_t (*shift_rows(uint8_t block[4][4]))[4]{
 
         }
         block[3][0] = temp;
-        print_2d_array(block);
-        return block;
 }
 
 uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
-    static uint8_t matrix[4][4];
+    uint8_t (*matrix)[4] = malloc(4*4*sizeof(uint8_t));
     int j = 0;
     int k = 0;
     for(int i = 0; i < 16; i++){
@@ -157,7 +193,6 @@ uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
         matrix[k][j] = block[i];
         j++;
     }
-    print_2d_array(matrix);
     return matrix;
 }
 
@@ -174,10 +209,9 @@ void print_2d_array(uint8_t array[4][4]){
 uint8_t* generate_block(FILE *file_ptr, int *pos){
     printf("Generating block. Starting from %d\n", *pos);
     fseek(file_ptr, *pos, SEEK_SET);
-    uint8_t* block = (uint8_t*)malloc(16 * sizeof(uint8_t));
-    fread(block, sizeof(char), 16, file_ptr);
-    //print_array(block, 16);
-    *pos += 16;
+    uint8_t* block = (uint8_t*)malloc(32 * sizeof(uint8_t));
+    fread(block, sizeof(char), 32, file_ptr);
+    *pos += 32;
     return block;
 }
 
@@ -192,12 +226,14 @@ char* get_key(FILE *file_ptr, int *pos) {
     return key;
 }
 
-uint8_t substitute(uint8_t byte){
+void substitute(uint8_t byte[], int length){
     //Sbox row is determined by the first 4 bits of the byte
     //Sbox column is determined by the last 4 bits of the byte
-    uint8_t row = (byte & 0xf0) >> 4;
-    uint8_t col = byte & 0x0f;
-    return sbox[row][col];
+    for(int i = 0; i < length; i++){
+        uint8_t row = (byte[i] & 0xf0) >> 4;
+        uint8_t col = byte[i] & 0x0f;
+        byte[i] = sbox[row][col];
+    }
 }
 
 
