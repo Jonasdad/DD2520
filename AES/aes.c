@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdint.h>
 
+static const uint8_t rcon[10] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36};
+
 static const uint8_t sbox[16][16] = {
     {0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76},
     {0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0},
@@ -80,6 +82,9 @@ void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len);
 uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[16]))[4];
 void print_byte_array(uint8_t array[], int length);
 uint8_t* flatten_matrix(uint8_t (*matrix)[4]);
+void RotWord(uint8_t word[4]);
+void SubWord(uint8_t word[4]);
+uint8_t* generate_keys(uint8_t key[16]);
 
 void main() {
     printf("Starting program\n");
@@ -105,6 +110,30 @@ void main() {
     free(key_matrix);
     free(encrypted);
 }
+
+uint8_t* generate_keys(uint8_t key[16]){
+
+}
+
+void RotWord(uint8_t word[4]){
+    //rotate the word
+    uint8_t temp = word[0];
+    for(int i = 0; i < 3; i++){
+        word[i] = word[i+1];
+    }
+    word[3] = temp;
+
+}
+
+void SubWord(uint8_t word[4]){
+    //substitute the word
+    for(int i = 0; i < 4; i++){
+        uint8_t row = (word[i] & 0xf0) >> 4;
+        uint8_t col = word[i] & 0x0f;
+        word[i] = sbox[row][col];
+    }
+}
+
 
 uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[16]))[4] {
     uint8_t (*block_matrix)[4] = block_to_matrix(block);
@@ -159,18 +188,22 @@ void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len) {
             block[i][j] ^= key[i][j];
         }
     }
-    printf("Add round key: \n");
-    print_2d_array(block);
+    //printf("Add round key: \n");
+    //print_2d_array(block);
 }
 
 void column_mix(uint8_t block[4][4]) {
     uint8_t temp[4];
 
     for (int c = 0; c < 4; c++) {
-        temp[0] = gf_mul_2[block[0][c]] ^ gf_mul_3[block[1][c]] ^ block[2][c] ^ block[3][c];
+        temp[0] = gf_mul_2[block[0][c]] ^ gf_mul_3[block[1][c]] ^ block[2][c] ^ block[3][c];        
+        //printf("temp[0]: %02x\n", temp[0]);
         temp[1] = block[0][c] ^ gf_mul_2[block[1][c]] ^ gf_mul_3[block[2][c]] ^ block[3][c];
+        //printf("temp[1]: %02x\n", temp[1]);
         temp[2] = block[0][c] ^ block[1][c] ^ gf_mul_2[block[2][c]] ^ gf_mul_3[block[3][c]];
+        //printf("temp[2]: %02x\n", temp[2]);
         temp[3] = gf_mul_3[block[0][c]] ^ block[1][c] ^ block[2][c] ^ gf_mul_2[block[3][c]];
+        //printf("temp[3]: %02x\n", temp[3]);
         for (int i = 0; i < 4; i++) {
             block[i][c] = temp[i];
         }
@@ -205,8 +238,8 @@ void shift_rows(uint8_t block[4][4]){
 
         }
         block[3][0] = temp;
-        printf("Shift: \n");
-        print_2d_array(block);
+        //printf("Shift: \n");
+        //print_2d_array(block);
 }
 
 uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
@@ -263,8 +296,8 @@ void substitute(uint8_t block[4][4]) {
             block[i][j] = sbox[row][col];
         }
     }
-    printf("Substitute: \n");
-    print_2d_array(block);
+    //printf("Substitute: \n");
+    //print_2d_array(block);
 }
 
 
