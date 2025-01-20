@@ -77,95 +77,82 @@ void print_2d_array(uint8_t array[4][4]);
 uint8_t (*block_to_matrix(uint8_t block[16]))[4];
 void shift_rows(uint8_t block[4][4]);
 void column_mix(uint8_t block[4][4]);
-void add_round_key(uint8_t block[4][4], uint8_t key[4][4]);
+void add_round_key(uint8_t block[4][4], uint8_t key[16]);
 void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len);
-uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[176]))[4];
-void print_byte_array(uint8_t array[], int length);
+uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[11][16]))[4];
+void print_byte_array(uint8_t array[16], int length);
 uint8_t* flatten_matrix(uint8_t (*matrix)[4]);
 void RotWord(uint8_t word[4]);
 void SubWord(uint8_t word[4]);
-void keyExpansion(const uint8_t key[16], uint8_t expandedKey[176]);
-void printKey(uint8_t key[176], int length);
+void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]);
 
 void main() {
-    printf("Starting program\n");
+    printf("Starting program...\n");
     int pos = 0;
     FILE *file_ptr = fopen("test.txt", "r");
-    //char* key = get_key(file_ptr, &pos);
-    char* key = "F4C020A0A1F604FD343FAC6A7E6AE0F9";
-    char* plaintext = "F295B9318B994434D93D98A4E449AFD8";
-
+    char* key = get_key(file_ptr, &pos);
 
     uint8_t key_bytes[16];
     hexStringToBytes(key, key_bytes, 16);
     uint8_t (*key_matrix)[4] = block_to_matrix(key_bytes);
-    uint8_t keys[176];
-    keyExpansion(key_bytes, keys);
-   // printKey(keys, 176);
-    print_array(key_bytes, 16);
-    print_2d_array(key_matrix);
-    //uint8_t* block2 = generate_block(file_ptr, &pos);
+    uint8_t round_keys[11][16];
+    keyExpansion(key_bytes, round_keys);
+    uint8_t* plaintext = generate_block(file_ptr, &pos);
     uint8_t state[16];
     hexStringToBytes(plaintext, state, 16);
+    uint8_t (*encrypted)[4] = aes_encrypt(state, round_keys);
     
-
-    //printf("\n%02x\n", *test);
-    uint8_t test[4] = {0x02, 0x00, 0x02, 0x00};
-        for(int i = 0; i < 4; i++){
-        printf("%02x", test[i]);
-    }
-    SubWord(test);
-    printf("\n");
-    for(int i = 0; i < 4; i++){
-        printf("%02x", test[i]);
-    }
-
-    uint8_t (*encrypted)[4] = aes_encrypt(state, keys);
-    
-    printf("Expected output: 52E418CBB1BE4949308B381691B109FE\n");
-    print_2d_array(encrypted);
     uint8_t* result = flatten_matrix(encrypted);
-    print_array(result, 16);
-    printf("Output: ");
+    printf("Expected Output: 52 e4 18 cb b1 be 49 49 30 8b 38 16 91 b1 09 fe\n");
+    printf("         Output: ");
     print_array(result, 16);
     
     free(key_matrix);
     free(encrypted);
 }
 
-void keyExpansion(const uint8_t key[16], uint8_t expandedKey[176]) {
-    memcpy(expandedKey, key, 16); // Copy original key into first round key
+
+
+
+void keyExpansion(const uint8_t key[16], uint8_t round_keys[11][16]) {
+    uint8_t word_0[4]; 
+    uint8_t word_1[4]; 
+    uint8_t word_2[4]; 
+    uint8_t word_3[4]; 
+
+    for(int i = 0; i < 4; i++){
+        word_0[i] = key[i];
+        word_1[i] = key[i+4];
+        word_2[i] = key[i+8];
+        word_3[i] = key[i+12];
+    }
+    uint8_t keys[11][16];
+    //inital key
+    for(int i = 0; i < 4; i++){
+        keys[0][i] = word_0[i];
+        keys[0][i+4]= word_1[i];
+        keys[0][i+8] = word_2[i];
+        keys[0][i+12] = word_3[i];
+    }
 
     uint8_t temp[4];
-    int rconIndex = 0;
-
-    for (int i = 16; i < 176; i += 4) {
-        memcpy(temp, &expandedKey[i - 4], 4);  // Copy last 4 bytes
-
-        if (i % 16 == 0) {
-            // Apply Key Schedule Core
-            RotWord(temp);
-            SubWord(temp);
-            temp[0] ^= rcon[rconIndex++];
+    memcpy(temp, word_3, 4);
+    //Create new first word of key:
+    for(int j = 1; j < 11; j++){
+        RotWord(temp);
+        SubWord(temp);
+        temp[0] ^= rcon[j-1];
+        for(int i = 0; i < 4; i++){   
+            keys[j][i] = keys[j-1][i] ^ temp[i];
         }
 
-        // Generate new key word
-        for (int j = 0; j < 4; j++) {
-            expandedKey[i + j] = expandedKey[i + j - 16] ^ temp[j];
+        for(int k = 4; k < 16; k++){
+            keys[j][k] = keys[j][k-4] ^ keys[j-1][k];
         }
+        memcpy(temp, &keys[j][12], 4);
+        memcpy(round_keys, keys, 176);
     }
-}
 
-
-// Print keys
-void printKey(uint8_t key[176], int length) {
-    for(int i = 0; i < 176; i++){
-        if(i % 16 == 0 && i != 0){
-            printf("\n");
-
-        }
-        printf("%02x", key[i]);
-    }
 }
 
 void RotWord(uint8_t word[4]){
@@ -186,26 +173,26 @@ void SubWord(uint8_t word[4]){
     }
 }
 
-uint8_t (*aes_encrypt(uint8_t block[16], uint8_t expandedKey[176]))[4] {
+uint8_t (*aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]))[4] {
     uint8_t (*state)[4] = block_to_matrix(block);
-
+    printf("Encrypting block...\n");
     // Initial round: Add the first round key
-    add_round_key(state, (uint8_t (*)[4]) &expandedKey[0]);  
-
+    print_2d_array(state);
+    add_round_key(state, round_keys[0]);  
     // 9 Main rounds
     for (int round = 1; round < 10; round++) {
         substitute(state);  // S-Box substitution
         shift_rows(state);  // ShiftRows
         column_mix(state);  // MixColumns
         // Extract the correct round key from expanded  Key
-        add_round_key(state, (uint8_t (*)[4]) &expandedKey[round * 16]);
+        add_round_key(state, round_keys[round]);
     }
 
     // Final round (without MixColumns)
     substitute(state);
     shift_rows(state);
-    add_round_key(state, (uint8_t (*)[4]) &expandedKey[160]); // Final round key
-
+    add_round_key(state, round_keys[10]); // Final round key
+    printf("Finished encrypting block!\n");
     return state;
 }
 
@@ -214,13 +201,13 @@ uint8_t* flatten_matrix(uint8_t (*matrix)[4]) {
     int j = 0;
     for (int i = 0; i < 4; i++) {
         for (int k = 0; k < 4; k++) {
-            result[j] = matrix[i][k];
+            result[j] = matrix[k][i];
             j++;
         }
     }
     return result;
 }
-void print_byte_array(uint8_t array[], int length) {
+void print_byte_array(uint8_t array[16], int length) {
     for (int i = 0; i < length; i++) {
         printf("%02x", array[i]);
     }
@@ -233,25 +220,18 @@ void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len) {
     }
 }
 
- void add_round_key(uint8_t block[4][4], uint8_t key[4][4]){
-    //printf("XORing: \n");
-    //print_2d_array(block);
-    //print_2d_array(key);
+ void add_round_key(uint8_t block[4][4], uint8_t key[16]){
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
-            block[i][j] ^= key[i][j];
+            block[i][j] ^= key[j*4+i];
         }
     }
     //printf("After XOR: \n");
-    //print_2d_array(block);
-    //printf("Add round key: \n");
     //print_2d_array(block);
 }
 
 void column_mix(uint8_t block[4][4]) {
     uint8_t temp[4];
-    //printf("Before column mix:\n");
-  //  print_2d_array(block);
     for (int c = 0; c < 4; c++) {
         temp[0] = gf_mul_2[block[0][c]] ^ gf_mul_3[block[1][c]] ^ block[2][c] ^ block[3][c];
         temp[1] = block[0][c] ^ gf_mul_2[block[1][c]] ^ gf_mul_3[block[2][c]] ^ block[3][c];
@@ -263,8 +243,8 @@ void column_mix(uint8_t block[4][4]) {
             block[i][c] = temp[i];
         }
     }
-    //printf("AFter column mix:\n");
-  //  print_2d_array(block);
+    //printf("After column mix:\n");
+    //print_2d_array(block);
 }
 
 
@@ -294,12 +274,13 @@ void shift_rows(uint8_t block[4][4]){
 
         }
         block[3][0] = temp;
-        //printf("Shift: \n");
-        //print_2d_array(block);
+      //  printf("After Shift: \n");
+      //  print_2d_array(block);
 }
 
 // Tested
 uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
+    printf("Creating block...\n");
     uint8_t (*matrix)[4] = malloc(4*4*sizeof(uint8_t));
     int j = 0;
     int k = 0;
@@ -308,7 +289,7 @@ uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
             k++;
             j=0;
         }
-        matrix[k][j] = block[i];
+        matrix[j][k] = block[i];
         j++;
     }
     return matrix;
@@ -351,14 +332,14 @@ void substitute(uint8_t block[4][4]) {
             block[i][j] = sbox[row][col];
         }
     }
-    //printf("Substitute: \n");
+    //printf("After Substitute: \n");
     //print_2d_array(block);
 }
 
 
 void print_array(uint8_t array[], int length){
     for(int i = 0; i < length; i++){
-        printf("%02x", array[i]);
+        printf("%02x ", array[i]);
     }
     printf("\n");
 }
