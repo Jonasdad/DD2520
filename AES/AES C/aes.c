@@ -69,9 +69,9 @@ static const uint8_t mix_column_matrix[4][4] = {
     {0x03, 0x01, 0x01, 0x02}
 };
 
-char* get_key(FILE *file_ptr, int *pos);
+char* get_key(FILE *file_ptr);
 void substitute(uint8_t byte[4][4]);
-uint8_t* generate_block(FILE *file_ptr, int *pos);
+uint8_t* generate_block(FILE *file_ptr);
 void print_array(uint8_t array[], int length);
 void print_2d_array(uint8_t array[4][4]);
 uint8_t (*block_to_matrix(uint8_t block[16]))[4];
@@ -86,29 +86,52 @@ void RotWord(uint8_t word[4]);
 void SubWord(uint8_t word[4]);
 void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]);
 
-void main() {
+int main() {
     printf("Starting program...\n");
-    int pos = 0;
-    FILE *file_ptr = fopen("test.txt", "r");
-    char* key = get_key(file_ptr, &pos);
+    // Storage
+    uint8_t *key_bytes = (uint8_t *)malloc(16 * sizeof(uint8_t));
+    uint8_t (*round_keys)[16] = (uint8_t (*)[16])malloc(11 * 16 * sizeof(uint8_t));
 
-    uint8_t key_bytes[16];
-    hexStringToBytes(key, key_bytes, 16);
+    if (key_bytes == NULL || round_keys == NULL) {
+        printf("Memory allocation failed\n");
+        return 1;
+    }
+
+    //Reads key and block
+    FILE *file_ptr = fopen("test.txt", "r");
+    char* key = get_key(file_ptr);
     uint8_t (*key_matrix)[4] = block_to_matrix(key_bytes);
-    uint8_t round_keys[11][16];
-    keyExpansion(key_bytes, round_keys);
-    uint8_t* plaintext = generate_block(file_ptr, &pos);
+
+    //Convert 32byte hex to 16 8-bit unsigned integers
+    hexStringToBytes(key, key_bytes, 16);
+    
+    //Generate round keys
+    keyExpansion(key_bytes, round_keys);    
+    char hex_block[33]; // 32 hex characters + null terminator
     uint8_t state[16];
-    hexStringToBytes(plaintext, state, 16);
-    uint8_t (*encrypted)[4] = aes_encrypt(state, round_keys);
-    
-    uint8_t* result = flatten_matrix(encrypted);
-    printf("Expected Output: 52 e4 18 cb b1 be 49 49 30 8b 38 16 91 b1 09 fe\n");
-    printf("         Output: ");
-    print_array(result, 16);
-    
-    free(key_matrix);
-    free(encrypted);
+    int count_blocks = 0;
+    while (fgets(hex_block, sizeof(hex_block), file_ptr) != NULL) {
+        // Remove newline character if present
+        hex_block[strcspn(hex_block, "\n")] = 0;
+
+        // Convert hex string to bytes
+        hexStringToBytes(hex_block, state, 16);
+
+        // Encrypt the block
+        uint8_t (*encrypted)[4] = aes_encrypt(state, round_keys);
+
+        // "Pretty print"
+        uint8_t* result = flatten_matrix(encrypted);
+        print_byte_array(result, 16);
+        free(result);
+        count_blocks++;
+    }
+
+    // Clean up
+    fclose(file_ptr);
+
+    printf("Finished processing %d blocks.\n", count_blocks);
+    return 0;
 }
 
 
@@ -129,10 +152,10 @@ void keyExpansion(const uint8_t key[16], uint8_t round_keys[11][16]) {
     uint8_t keys[11][16];
     //inital key
     for(int i = 0; i < 4; i++){
-        keys[0][i] = word_0[i];
-        keys[0][i+4]= word_1[i];
-        keys[0][i+8] = word_2[i];
-        keys[0][i+12] = word_3[i];
+        round_keys[0][i] = word_0[i];
+        round_keys[0][i+4]= word_1[i];
+        round_keys[0][i+8] = word_2[i];
+        round_keys[0][i+12] = word_3[i];
     }
 
     uint8_t temp[4];
@@ -143,14 +166,13 @@ void keyExpansion(const uint8_t key[16], uint8_t round_keys[11][16]) {
         SubWord(temp);
         temp[0] ^= rcon[j-1];
         for(int i = 0; i < 4; i++){   
-            keys[j][i] = keys[j-1][i] ^ temp[i];
+            round_keys[j][i] = round_keys[j-1][i] ^ temp[i];
         }
 
         for(int k = 4; k < 16; k++){
-            keys[j][k] = keys[j][k-4] ^ keys[j-1][k];
+            round_keys[j][k] = round_keys[j][k-4] ^ round_keys[j-1][k];
         }
-        memcpy(temp, &keys[j][12], 4);
-        memcpy(round_keys, keys, 176);
+        memcpy(temp, &round_keys[j][12], 4);
     }
 
 }
@@ -175,9 +197,7 @@ void SubWord(uint8_t word[4]){
 
 uint8_t (*aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]))[4] {
     uint8_t (*state)[4] = block_to_matrix(block);
-    printf("Encrypting block...\n");
     // Initial round: Add the first round key
-    print_2d_array(state);
     add_round_key(state, round_keys[0]);  
     // 9 Main rounds
     for (int round = 1; round < 10; round++) {
@@ -192,7 +212,6 @@ uint8_t (*aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]))[4] {
     substitute(state);
     shift_rows(state);
     add_round_key(state, round_keys[10]); // Final round key
-    printf("Finished encrypting block!\n");
     return state;
 }
 
@@ -280,7 +299,6 @@ void shift_rows(uint8_t block[4][4]){
 
 // Tested
 uint8_t (*block_to_matrix(uint8_t block[16]))[4]{
-    printf("Creating block...\n");
     uint8_t (*matrix)[4] = malloc(4*4*sizeof(uint8_t));
     int j = 0;
     int k = 0;
@@ -305,13 +323,13 @@ void print_2d_array(uint8_t array[4][4]){
     }
     printf("\n");
 }
-uint8_t* generate_block(FILE *file_ptr, int *pos){
+uint8_t* generate_block(FILE *file_ptr){
     uint8_t* block = (uint8_t*)malloc(32 * sizeof(uint8_t));
     fread(block, sizeof(char), 32, file_ptr);
     return block;
 }
 
-char* get_key(FILE *file_ptr, int *pos) {
+char* get_key(FILE *file_ptr) {
     if (file_ptr == NULL) {
         printf("Error: File not found\n");
         exit(1);
