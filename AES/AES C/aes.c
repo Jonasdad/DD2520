@@ -71,7 +71,6 @@ static const uint8_t mix_column_matrix[4][4] = {
 
 char* get_key(FILE *file_ptr);
 void substitute(uint8_t byte[4][4]);
-uint8_t* generate_block(FILE *file_ptr);
 void print_array(uint8_t array[], int length);
 void print_2d_array(uint8_t array[4][4]);
 uint8_t (*block_to_matrix(uint8_t block[16]))[4];
@@ -323,11 +322,7 @@ void print_2d_array(uint8_t array[4][4]){
     }
     printf("\n");
 }
-uint8_t* generate_block(FILE *file_ptr){
-    uint8_t* block = (uint8_t*)malloc(32 * sizeof(uint8_t));
-    fread(block, sizeof(char), 32, file_ptr);
-    return block;
-}
+
 
 char* get_key(FILE *file_ptr) {
     if (file_ptr == NULL) {
