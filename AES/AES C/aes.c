@@ -99,27 +99,14 @@ int main() {
     // Perform key expansion
     keyExpansion(key, round_keys);  // Ensure you have a correct keyExpansion function
 
-    // Open the output file in binary write mode
-    FILE *output_file = fopen("encrypted_output.bin", "wb");
-    if (output_file == NULL) {
-        fprintf(stderr, "Error: Unable to open output file\n");
-        return 1;
-    }
-
     // Read blocks and encrypt
     while (fread(block, 1, BLOCK_SIZE, stdin) == BLOCK_SIZE) {
         uint8_t *encrypted = aes_encrypt(block, round_keys);
-        // Write the encrypted data to the output file
-        fwrite(encrypted, 1, BLOCK_SIZE, output_file);
-        free(encrypted);  // Free the allocated memory for the encrypted block
+        hex_print(encrypted, BLOCK_SIZE);  // Output in correct format
     }
-
-    // Close the output file
-    fclose(output_file);
 
     return 0;
 }
-
 
 
 
