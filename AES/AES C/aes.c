@@ -96,23 +96,30 @@ int main() {
         fprintf(stderr, "Error: Unable to read the 128-bit key\n");
         return 1;
     }
-    printf("Key:");
-    hex_print(key, 16);
-    printf("\n");
     // Perform key expansion
     keyExpansion(key, round_keys);  // Ensure you have a correct keyExpansion function
 
+    // Open the output file in binary write mode
+    FILE *output_file = fopen("encrypted_output.bin", "wb");
+    if (output_file == NULL) {
+        fprintf(stderr, "Error: Unable to open output file\n");
+        return 1;
+    }
+
     // Read blocks and encrypt
     while (fread(block, 1, BLOCK_SIZE, stdin) == BLOCK_SIZE) {
-        printf("Block:");
-        hex_print(block, 16);
-        printf("\n");
         uint8_t *encrypted = aes_encrypt(block, round_keys);
-        hex_print(encrypted, BLOCK_SIZE);  // Output in correct format
+        // Write the encrypted data to the output file
+        fwrite(encrypted, 1, BLOCK_SIZE, output_file);
+        free(encrypted);  // Free the allocated memory for the encrypted block
     }
+
+    // Close the output file
+    fclose(output_file);
 
     return 0;
 }
+
 
 
 
@@ -193,7 +200,6 @@ uint8_t *aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]) {
     shift_rows(state);
     add_round_key(state, round_keys[10]); // Final round key
     uint8_t* result = flatten_matrix(state);
-    print_2d_array(state);
     return result;
 }
 
@@ -212,7 +218,6 @@ void hex_print(uint8_t array[16], int length) {
     for (int i = 0; i < length; i++) {
         printf("%02X", array[i]);
     }
-    printf("\n");
 }
 
 void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len) {
