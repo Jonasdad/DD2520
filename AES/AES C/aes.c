@@ -79,43 +79,38 @@ void column_mix(uint8_t block[4][4]);
 void add_round_key(uint8_t block[4][4], uint8_t key[16]);
 void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len);
 uint8_t *aes_encrypt(uint8_t block[16], uint8_t key[11][16]);
-void print_byte_array(uint8_t array[16], int length);
+void hex_print(uint8_t array[16], int length);
 uint8_t* flatten_matrix(uint8_t (*matrix)[4]);
 void RotWord(uint8_t word[4]);
 void SubWord(uint8_t word[4]);
 void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]);
 #define BLOCK_SIZE 16
 #define MAX_BLOCKS 106
-int main(int argc, char* argv[]) {
-    printf("Starting program...\n");
-
-    // Storage for key and round keys
+int main() {
     uint8_t key[BLOCK_SIZE];
-    uint8_t round_keys[11][BLOCK_SIZE];
+    uint8_t round_keys[11][BLOCK_SIZE];  // Store expanded keys
+    uint8_t block[BLOCK_SIZE];
 
-    // Read the first 16 bytes as the key from stdin
+    // Read the key (first 16 bytes from stdin)
     if (fread(key, 1, BLOCK_SIZE, stdin) != BLOCK_SIZE) {
-        printf("Error: Unable to read the 128-bit key from stdin\n");
+        fprintf(stderr, "Error: Unable to read the 128-bit key\n");
         return 1;
     }
-
+    printf("Key:");
+    hex_print(key, 16);
+    printf("\n");
     // Perform key expansion
-    keyExpansion(key, round_keys);
+    keyExpansion(key, round_keys);  // Ensure you have a correct keyExpansion function
 
-    // Process each block
-    uint8_t block[BLOCK_SIZE];
-    int count_blocks = 0;
-
+    // Read blocks and encrypt
     while (fread(block, 1, BLOCK_SIZE, stdin) == BLOCK_SIZE) {
-        // Encrypt the block
-        uint8_t encrypted[16];
-        uint8_t* encrypted = aes_encrypt(block, round_keys);
-        print_byte_array(encrypted, BLOCK_SIZE);
-        free(encrypted);
-        count_blocks++;
+        printf("Block:");
+        hex_print(block, 16);
+        printf("\n");
+        uint8_t *encrypted = aes_encrypt(block, round_keys);
+        hex_print(encrypted, BLOCK_SIZE);  // Output in correct format
     }
 
-    printf("Finished processing %d blocks.\n", count_blocks);
     return 0;
 }
 
@@ -198,6 +193,7 @@ uint8_t *aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]) {
     shift_rows(state);
     add_round_key(state, round_keys[10]); // Final round key
     uint8_t* result = flatten_matrix(state);
+    print_2d_array(state);
     return result;
 }
 
@@ -212,9 +208,9 @@ uint8_t* flatten_matrix(uint8_t (*matrix)[4]) {
     }
     return result;
 }
-void print_byte_array(uint8_t array[16], int length) {
+void hex_print(uint8_t array[16], int length) {
     for (int i = 0; i < length; i++) {
-        printf("%02x", array[i]);
+        printf("%02X", array[i]);
     }
     printf("\n");
 }
