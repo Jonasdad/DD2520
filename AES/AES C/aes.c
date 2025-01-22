@@ -78,58 +78,44 @@ void shift_rows(uint8_t block[4][4]);
 void column_mix(uint8_t block[4][4]);
 void add_round_key(uint8_t block[4][4], uint8_t key[16]);
 void hexStringToBytes(const char *hexString, uint8_t *byteArray, size_t len);
-uint8_t (*aes_encrypt(uint8_t block[16], uint8_t key[11][16]))[4];
+uint8_t *aes_encrypt(uint8_t block[16], uint8_t key[11][16]);
 void print_byte_array(uint8_t array[16], int length);
 uint8_t* flatten_matrix(uint8_t (*matrix)[4]);
 void RotWord(uint8_t word[4]);
 void SubWord(uint8_t word[4]);
 void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]);
+#define BLOCK_SIZE 16
+#define MAX_BLOCKS 106
+int main(int argc, char* argv[]) {
+    printf("Starting program...\n");
 
-int main(int argc, char *argv[]){
-    // Storage
-    uint8_t *key_bytes = (uint8_t *)malloc(16 * sizeof(uint8_t));
-    uint8_t (*round_keys)[16] = (uint8_t (*)[16])malloc(11 * 16 * sizeof(uint8_t));
+    // Storage for key and round keys
+    uint8_t key[BLOCK_SIZE];
+    uint8_t round_keys[11][BLOCK_SIZE];
 
-    if (key_bytes == NULL || round_keys == NULL) {
-        printf("Memory allocation failed\n");
+    // Read the first 16 bytes as the key from stdin
+    if (fread(key, 1, BLOCK_SIZE, stdin) != BLOCK_SIZE) {
+        printf("Error: Unable to read the 128-bit key from stdin\n");
         return 1;
     }
-    char* filename = argv[1];
 
-    //Reads key and block
-    FILE *file_ptr = fopen(filename, "r");
-    char* key = get_key(file_ptr);
-    uint8_t (*key_matrix)[4] = block_to_matrix(key_bytes);
+    // Perform key expansion
+    keyExpansion(key, round_keys);
 
-    //Convert 32byte hex to 16 8-bit unsigned integers
-    hexStringToBytes(key, key_bytes, 16);
-    
-    //Generate round keys
-    keyExpansion(key_bytes, round_keys);    
-    char hex_block[33]; // 32 hex characters + null terminator
-    uint8_t state[16];
+    // Process each block
+    uint8_t block[BLOCK_SIZE];
     int count_blocks = 0;
-    while (fgets(hex_block, sizeof(hex_block), file_ptr) != NULL) {
-        // Remove newline character if present
-        hex_block[strcspn(hex_block, "\n")] = 0;
 
-        // Convert hex string to bytes
-        hexStringToBytes(hex_block, state, 16);
-
+    while (fread(block, 1, BLOCK_SIZE, stdin) == BLOCK_SIZE) {
         // Encrypt the block
-        uint8_t (*encrypted)[4] = aes_encrypt(state, round_keys);
-
-        // "Pretty print"
-        uint8_t* result = flatten_matrix(encrypted);
-        print_byte_array(result, 16);
-        free(result);
+        uint8_t encrypted[16];
+        uint8_t* encrypted = aes_encrypt(block, round_keys);
+        print_byte_array(encrypted, BLOCK_SIZE);
+        free(encrypted);
         count_blocks++;
     }
 
-    // Clean up
-    fclose(file_ptr);
-
-    //printf("Finished processing %d blocks.\n", count_blocks);
+    printf("Finished processing %d blocks.\n", count_blocks);
     return 0;
 }
 
@@ -194,7 +180,7 @@ void SubWord(uint8_t word[4]){
     }
 }
 
-uint8_t (*aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]))[4] {
+uint8_t *aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]) {
     uint8_t (*state)[4] = block_to_matrix(block);
     // Initial round: Add the first round key
     add_round_key(state, round_keys[0]);  
@@ -211,7 +197,8 @@ uint8_t (*aes_encrypt(uint8_t block[16], uint8_t round_keys[11][16]))[4] {
     substitute(state);
     shift_rows(state);
     add_round_key(state, round_keys[10]); // Final round key
-    return state;
+    uint8_t* result = flatten_matrix(state);
+    return result;
 }
 
 uint8_t* flatten_matrix(uint8_t (*matrix)[4]) {
