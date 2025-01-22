@@ -85,8 +85,7 @@ void RotWord(uint8_t word[4]);
 void SubWord(uint8_t word[4]);
 void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]);
 
-int main() {
-    printf("Starting program...\n");
+int main(int argc, char *argv[]){
     // Storage
     uint8_t *key_bytes = (uint8_t *)malloc(16 * sizeof(uint8_t));
     uint8_t (*round_keys)[16] = (uint8_t (*)[16])malloc(11 * 16 * sizeof(uint8_t));
@@ -95,9 +94,10 @@ int main() {
         printf("Memory allocation failed\n");
         return 1;
     }
+    char* filename = argv[1];
 
     //Reads key and block
-    FILE *file_ptr = fopen("test.txt", "r");
+    FILE *file_ptr = fopen(filename, "r");
     char* key = get_key(file_ptr);
     uint8_t (*key_matrix)[4] = block_to_matrix(key_bytes);
 
@@ -129,7 +129,7 @@ int main() {
     // Clean up
     fclose(file_ptr);
 
-    printf("Finished processing %d blocks.\n", count_blocks);
+    //printf("Finished processing %d blocks.\n", count_blocks);
     return 0;
 }
 
@@ -330,8 +330,11 @@ char* get_key(FILE *file_ptr) {
         exit(1);
     }
     char* key = (char*)malloc(33);
-    fgets(key, 33, file_ptr);
- //   key[32] = '\0';
+    if (fgets(key, 33, file_ptr) == NULL) {
+        printf("Error: Failed to read key from file\n");
+        free(key);
+        exit(1);
+    }
     return key;
 }
 
