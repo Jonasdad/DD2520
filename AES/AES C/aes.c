@@ -89,7 +89,6 @@ void keyExpansion(const uint8_t key[16], uint8_t expandedKey[11][16]);
 int main() {
     uint8_t key[BLOCK_SIZE];
     uint8_t round_keys[11][BLOCK_SIZE];  // Store expanded keys
-    uint8_t block[BLOCK_SIZE];
 
     // Read the key (first 16 bytes from stdin)
     if (fread(key, 1, BLOCK_SIZE, stdin) != BLOCK_SIZE) {
@@ -98,18 +97,35 @@ int main() {
     }
     // Perform key expansion
     keyExpansion(key, round_keys);  // Ensure you have a correct keyExpansion function
+    uint8_t block[BLOCK_SIZE];
+    int count = 0;
+    uint8_t *result = NULL;
+    size_t result_size = 0;
 
-    // Read blocks and encrypt
     while (fread(block, 1, BLOCK_SIZE, stdin) == BLOCK_SIZE) {
         uint8_t *encrypted = aes_encrypt(block, round_keys);
-        hex_print(encrypted, BLOCK_SIZE);  // Output in correct format
+        
+        // Increase the size of the result array
+        result_size += BLOCK_SIZE;
+        result = realloc(result, result_size);
+        if (result == NULL) {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            return 1;
+        }
+
+        // Store encrypted block in result array
+        memcpy(result + count * BLOCK_SIZE, encrypted, BLOCK_SIZE);
+        count++;
+        free(encrypted);  // Free the allocated memory for the encrypted block
     }
 
+    // Print the entire result array to stdout
+    fwrite(result, 1, result_size, stdout);
+
+    // Free the allocated memory for the result array
+    free(result);
     return 0;
 }
-
-
-
 
 void keyExpansion(const uint8_t key[16], uint8_t round_keys[11][16]) {
     uint8_t word_0[4]; 
