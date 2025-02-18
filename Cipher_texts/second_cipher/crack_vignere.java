@@ -5,22 +5,31 @@ public class crack_vignere {
     
     public static final String Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_#";
     public static final int key_length = 13;
+    public static int[] frequencies = new int[38];
     public static void main(String[] args){
         char[][]table = generate_letter_table(new File("cipher2.txt"));
-        Map<Integer, String> column_max_letter_freq = new HashMap<Integer, String>();
+        char[] column_max_letter_freq = new char[13];
         for(int i = 0; i < 13; i++){
-            Map<Character, Integer> freq = count_letter_freq_in_column(table, i);        
-            Entry<Character, Integer> maxEntry = Collections.max(freq.entrySet(), Comparator.comparingInt(Entry::getValue));
-            String item = maxEntry.getKey().toString();
-            column_max_letter_freq.put(i, item);
+            char most_common_in_column = count_letter_freq_in_column(table, i);        
+            column_max_letter_freq[i] = most_common_in_column;
+            System.out.println(most_common_in_column);
         }
+       
        String[][] vignere_table = generate_vignere_table();
        print_2d_array(vignere_table);
-       String[] keys = get_probable_keys(column_max_letter_freq, vignere_table);
-       print_key_cipher_correlation(keys, column_max_letter_freq.values().toArray(new String[0]));
+       //String[] keys = get_probable_keys(column_max_letter_freq, vignere_table);
+       //print_key_cipher_correlation(keys, column_max_letter_freq.values().toArray(new String[0]));
     }
 
-
+    public static String[][] generate_vignere_table(){
+        String[][] table = new String[Alphabet.length()][Alphabet.length()];
+        for (int i = 0; i < Alphabet.length(); i++) {
+            for (int j = 0; j < Alphabet.length(); j++) {
+                table[i][j] = Alphabet.charAt((i+j)%Alphabet.length())+"";
+            }
+        }
+        return table;
+    }
     public static String[] get_probable_keys(Map<Integer, String> column_max_letter_freq, String[][]vignere_table){
         String[] probable_keys = new String[key_length];
         int k = 0;
@@ -47,53 +56,44 @@ public class crack_vignere {
         }
     }
 
-    public static Map<Character, Integer> count_letter_freq_in_column(char[][] table, int column){
-        Map<Character, Integer> freq = new HashMap<>();
-        int i = 0;
-        for (; i < table.length; i++) {
+    public static char count_letter_freq_in_column(char[][] table, int column){
+       Map<Character, Integer> freq = new HashMap<Character, Integer>();
+       for(int i = 0; i < table.length; i++){
             char character = table[i][column];
-            if(freq.containsKey(character)){
-                freq.put(character, freq.get(character)+1);
-            }
-            else{
-                freq.put(character, 1);
-            }
-        }
-        //System.out.println("column " + column + " ");
-        return freq;
+            int index = Alphabet.indexOf(character);
+            frequencies[index]++;
+       }
+       int max = Arrays.stream(frequencies).max().getAsInt();
+       return Alphabet.charAt(max);
     }
 
     public static char[][] generate_letter_table(File cipher){
         char[][] table = new char[808][13];
+        int count = 0;
         try {
             BufferedReader br = new BufferedReader(new FileReader(cipher));
-            int i = 0;
-            int j = 0;
             int c;
+            int row = 0;
+            int col = 0;
             while ((c = br.read()) != -1) {
                 char character = (char) c;
-                if(i < 808 && j < 13){
-                    table[i][j] = character;
-                     j++;
+                if (Alphabet.indexOf(character) == -1) {
+                    continue; // Skip characters not in the allowed set
                 }
-                else if(j == 13){
-                    i++;
-                    j = 0;
+                count++;
+                table[row][col] = character;
+                col++;
+                if (col == 13) {
+                    col = 0;
+                    row++;
+                    if (row == 808) {
+                        break; // Stop if the table is full
+                    }
                 }
-               
             }
             br.close();
         } catch (IOException e) {
             e.printStackTrace();
-        }
-        return table;
-    }
-    public static String[][] generate_vignere_table(){
-        String[][] table = new String[Alphabet.length()][Alphabet.length()];
-        for (int i = 0; i < Alphabet.length(); i++) {
-            for (int j = 0; j < Alphabet.length(); j++) {
-                table[i][j] = Alphabet.charAt((i+j)%Alphabet.length())+"";
-            }
         }
         return table;
     }
