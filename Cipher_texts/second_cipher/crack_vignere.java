@@ -4,21 +4,21 @@ import java.util.Map.Entry;
 public class crack_vignere {
     
     public static final String Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_#";
-    public static final int key_length = 13;
+    public static final int key_length = 12;
     public static int[] frequencies = new int[38];
     public static void main(String[] args){
         char[][]table = generate_letter_table(new File("cipher2.txt"));
-        char[] column_max_letter_freq = new char[13];
-        for(int i = 0; i < 13; i++){
+        char[] column_max_letter_freq = new char[key_length];
+        for(int i = 0; i < key_length; i++){
             char most_common_in_column = count_letter_freq_in_column(table, i);        
             column_max_letter_freq[i] = most_common_in_column;
-            System.out.println(most_common_in_column);
+            System.out.println("Most Common Letter in Column: "+ i + " is " + most_common_in_column);
         }
        
        String[][] vignere_table = generate_vignere_table();
-       print_2d_array(vignere_table);
-       //String[] keys = get_probable_keys(column_max_letter_freq, vignere_table);
-       //print_key_cipher_correlation(keys, column_max_letter_freq.values().toArray(new String[0]));
+       //print_2d_array(vignere_table);
+       String[] keys = get_probable_keys(column_max_letter_freq, vignere_table);
+       print_key_cipher_correlation(keys, column_max_letter_freq.toString().split(""));
     }
 
     public static String[][] generate_vignere_table(){
@@ -30,20 +30,18 @@ public class crack_vignere {
         }
         return table;
     }
-    public static String[] get_probable_keys(Map<Integer, String> column_max_letter_freq, String[][]vignere_table){
+    public static String[] get_probable_keys(char[] column_max_letter_freq, String[][]vignere_table){
         String[] probable_keys = new String[key_length];
-        int k = 0;
-        String[] array = column_max_letter_freq.values().toArray(new String[0]);
-    for(int j = 0; j < key_length; j++){
-        for(int i = 0; i < Alphabet.length(); i++){
-            if(k == key_length){
-                break;
-            }
-            if(vignere_table[i][14].equals(array[j])){
-                probable_keys[j] = vignere_table[0][i];
+        for(int i = 0; i < key_length; i++){
+            int index = Alphabet.indexOf(column_max_letter_freq[i]);
+            for(int j = 0; j < Alphabet.length(); j++){
+                if(vignere_table[j][index].equals(column_max_letter_freq[i]+"")){
+                    probable_keys[i] = Alphabet.charAt(j)+"";
+                    break;
+                }
             }
         }
-    }
+
         return probable_keys;
     }
 
@@ -62,13 +60,29 @@ public class crack_vignere {
             char character = table[i][column];
             int index = Alphabet.indexOf(character);
             frequencies[index]++;
+           // System.out.println("Column: " + column +" Character: " + character + " Index: " + index + " Frequency: " + frequencies[index]);
        }
-       int max = Arrays.stream(frequencies).max().getAsInt();
-       return Alphabet.charAt(max);
+         int max = get_largest_int_in_array(frequencies);
+         //System.out.println("Max: " + max);
+         return Alphabet.charAt(get_index_of_value(frequencies, max));
+    }
+
+    public static int get_index_of_value(int[] array, int value){
+        for(int i = 0; i < array.length; i++){
+            if(array[i] == value){
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    public static int get_largest_int_in_array(int[] array){
+        int max = Arrays.stream(array).max().getAsInt();
+        return max;
     }
 
     public static char[][] generate_letter_table(File cipher){
-        char[][] table = new char[808][13];
+        char[][] table = new char[808][key_length];
         int count = 0;
         try {
             BufferedReader br = new BufferedReader(new FileReader(cipher));
@@ -83,7 +97,7 @@ public class crack_vignere {
                 count++;
                 table[row][col] = character;
                 col++;
-                if (col == 13) {
+                if (col == key_length) {
                     col = 0;
                     row++;
                     if (row == 808) {

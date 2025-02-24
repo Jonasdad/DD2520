@@ -22,14 +22,17 @@ public class vignere{
             remove_occurances_under_n(quadruples, 5);
             distance(triplets);
             distance(quadruples);
-            // print_triplets(triplets);
+            print_triplets(triplets);
             pretty_print(triplets, primeCount_triplets);
             pretty_print(quadruples, primeCount_quadruples);
-            System.out.println("Prime Count for Triplets: ");
+            //System.out.println("Prime Count for Triplets: ");
             //printSortedPrimeCounts(primeCount_triplets);
-            System.out.println("Prime Count for Quadruples: ");
+            //System.out.println("Prime Count for Quadruples: ");
             //printSortedPrimeCounts(primeCount_quadruples);
-            common_primes(primeCount_triplets, primeCount_quadruples);
+            //common_primes(primeCount_triplets, primeCount_quadruples);
+            for(int i = 0; i < triplets.size(); i++){
+                System.out.println(gcd(triplets.get(i).distance_to_next.get(0), triplets.get(i).distance_to_next.get(1)));
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -42,6 +45,29 @@ public class vignere{
         }
     }
 
+    static int gcd(int a, int b)
+    {
+        // stores minimum(a, b)
+        int i;
+        if (a < b)
+            i = a;
+        else
+            i = b;
+ 
+        // take a loop iterating through smaller number to 1
+        for (i = i; i > 1; i--) {
+ 
+            // check if the current value of i divides both
+            // numbers with remainder 0 if yes, then i is
+            // the GCD of a and b
+            if (a % i == 0 && b % i == 0)
+                return i;
+        }
+ 
+        // if there are no common factors for a and b other
+        // than 1, then GCD of a and b is 1
+        return 1;
+    }
     
     public static void printSortedPrimeCounts(Map<Integer, Integer> primeCount) {
         List<Entry<Integer, Integer>> list = new ArrayList<>(primeCount.entrySet());
