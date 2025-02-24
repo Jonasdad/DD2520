@@ -16,9 +16,49 @@ public class crack_vignere {
         }
        
        String[][] vignere_table = generate_vignere_table();
-       //print_2d_array(vignere_table);
+       print_2d_array(vignere_table);
        String[] keys = get_probable_keys(column_max_letter_freq, vignere_table);
-       print_key_cipher_correlation(keys, column_max_letter_freq.toString().split(""));
+       char[][] cipher_as_char_array = read_cipher_as_columns("chiper_as_columns.txt", 806, 12);
+       shift_and_write_to_file(cipher_as_char_array, keys, "deciphered.txt");
+      
+    }    
+    
+    public static char[][] read_cipher_as_columns(String filePath, int numRows, int numCols) {
+        char[][] table = new char[numRows][numCols];
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(filePath));
+            String line;
+            int row = 0;
+            while ((line = br.readLine()) != null && row < numRows) {
+                for (int col = 0; col < line.length() && col < numCols; col++) {
+                    table[row][col] = line.charAt(col);
+                }
+                row++;
+            }
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return table;
+    }
+    public static void shift_and_write_to_file(char[][] cipher_as_columns, String[] probable_keys, String outputFilePath) {
+        try {
+            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilePath));
+            for (int i = 0; i < cipher_as_columns.length; i++) {
+                for (int j = 0; j < cipher_as_columns[i].length; j++) {
+                    char original_char = cipher_as_columns[i][j];
+                    int original_index = Alphabet.indexOf(original_char);
+                    int key_index = Alphabet.indexOf(probable_keys[j % probable_keys.length].charAt(0));
+                    int shifted_index = (original_index - key_index + Alphabet.length()) % Alphabet.length();
+                    char shifted_char = Alphabet.charAt(shifted_index);
+                    writer.write(shifted_char);
+                }
+                writer.newLine();
+            }
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static String[][] generate_vignere_table(){
@@ -30,32 +70,24 @@ public class crack_vignere {
         }
         return table;
     }
-    public static String[] get_probable_keys(char[] column_max_letter_freq, String[][]vignere_table){
+
+    public static String[] get_probable_keys(char[] column_max_letter_freq, String[][] vignere_table) {
         String[] probable_keys = new String[key_length];
-        for(int i = 0; i < key_length; i++){
-            int index = Alphabet.indexOf(column_max_letter_freq[i]);
-            for(int j = 0; j < Alphabet.length(); j++){
-                if(vignere_table[j][index].equals(column_max_letter_freq[i]+"")){
-                    probable_keys[i] = Alphabet.charAt(j)+"";
-                    break;
+        int index = 0;
+        for (int i = 0; i < key_length; i++) {
+            for (int j = 0; j < Alphabet.length(); j++) {
+                if (vignere_table[j][14].equals(column_max_letter_freq[i] + "")) {
+                    System.out.println(column_max_letter_freq[i] + " --> " + vignere_table[j][0]);
+                    probable_keys[index] = vignere_table[j][0];
+                    index++;
+                    break; // Move to the next character in column_max_letter_freq
                 }
             }
         }
-
         return probable_keys;
     }
 
-    public static void print_key_cipher_correlation(String[] array, String[] array2){
-        System.out.println();
-        int i = 0;
-        System.out.println("Probable Key -> Cipher");
-        for(; i < key_length; i++){
-            System.out.println("\t " + array[i] + " -----> " + array2[i]);
-        }
-    }
-
     public static char count_letter_freq_in_column(char[][] table, int column){
-       Map<Character, Integer> freq = new HashMap<Character, Integer>();
        for(int i = 0; i < table.length; i++){
             char character = table[i][column];
             int index = Alphabet.indexOf(character);
